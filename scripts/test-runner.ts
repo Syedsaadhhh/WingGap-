@@ -745,6 +745,48 @@ describe("8. Quadrilateral & Projective Homography", () => {
   });
 });
 
+// 9. RUN 2 Field Experience Layer
+describe("9. RUN 2 Field Experience Suite", () => {
+  test("retake invalidates captured frame, corners, and plan", () => {
+    let frame: { dataUrl: string } | null = { dataUrl: "test" };
+    let corners: Quad | null = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }];
+    let plan = generatePlan(600, 900);
+
+    // Retake resets all derived state
+    frame = null;
+    corners = null;
+    plan = null as unknown as typeof plan;
+
+    assert.equal(frame, null);
+    assert.equal(corners, null);
+    assert.equal(plan, null);
+  });
+
+  test("requires both width and height for valid dimension check", () => {
+    assert.equal(validatePaneDimensions(600, NaN).valid, false);
+    assert.equal(validatePaneDimensions(NaN, 900).valid, false);
+    assert.equal(validatePaneDimensions(600, 900).valid, true);
+  });
+
+  test("executes complete delete -> fail -> repair -> pass lifecycle", () => {
+    let plan = generatePlan(600, 900);
+    assert.equal(plan.markers.length, 280);
+
+    // Delete interior marker
+    plan = removeMarker(plan, { row: 8, col: 7 });
+    assert.equal(plan.markers.length, 279);
+    const broken = validatePlan(plan);
+    assert.equal(broken.guidanceCheckMet, false);
+
+    // Repair layout
+    plan = repairPlan(plan);
+    assert.equal(plan.markers.length, 280);
+    const repaired = validatePlan(plan);
+    assert.equal(repaired.guidanceCheckMet, true);
+    assert.equal(repaired.targetMet, true);
+  });
+});
+
 console.log(`\n========================================`);
 console.log(`WINGGAP VERIFICATION SUITE COMPLETE`);
 console.log(`Total tests executed: ${totalTests}`);

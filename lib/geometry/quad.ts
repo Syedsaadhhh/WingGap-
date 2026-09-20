@@ -8,6 +8,8 @@
 
 import type { Point2D } from "../camera/displayTransform.ts";
 
+export type { Point2D };
+export type Point = Point2D;
 export type Quad = [Point2D, Point2D, Point2D, Point2D];
 
 const EPSILON = 1e-6;
