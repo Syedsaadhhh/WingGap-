@@ -64,7 +64,7 @@ WingGap applies a locked physical convention based on peer-reviewed collision re
 - **Next.js 14** (App Router, static production export)
 - **TypeScript** with strict type-checking
 - **Tailwind CSS** for responsive layout and high-contrast UI
-- **Vitest** with 75 automated unit, adversarial, homography, and property tests
+- **Vitest** with 76 automated unit, adversarial, homography, and property tests
 - **QRCode** for optional desktop-to-mobile handoff
 - No OpenCV, Python sidecars, or external ML black-box dependencies.
 
@@ -95,7 +95,7 @@ Individual commands:
 ```bash
 npm run lint       # Run Next.js ESLint
 npm run typecheck  # Run TypeScript compiler check (tsc --noEmit)
-npm run test       # Run Vitest test suite (75 tests)
+npm run test       # Run Vitest test suite (76 tests)
 npm run build      # Build static production bundle
 ```
 
