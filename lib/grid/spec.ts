@@ -49,7 +49,8 @@ export type ValidationIssueCode =
   | "FULL_COLUMN_MISSING"
   | "TARGET_PITCH_EXCEEDED"
   | "GUIDANCE_CLEAR_GAP_EXCEEDED"
-  | "GUIDANCE_BOUNDARY_CLEARANCE_EXCEEDED";
+  | "GUIDANCE_BOUNDARY_CLEARANCE_EXCEEDED"
+  | "SPEC_MISMATCH";
 
 export interface ValidationIssue {
   code: ValidationIssueCode;

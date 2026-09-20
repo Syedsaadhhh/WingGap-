@@ -402,6 +402,80 @@ describe("5. Adversarial Fixtures Suite", () => {
   });
 });
 
+// 5b. Hostile Policy Tampering Suite
+describe("5b. Hostile Policy Tampering Suite", () => {
+  test("tampered dot diameter (5.0 mm) is rejected and SPEC_MISMATCH is caught", () => {
+    const plan = generatePlan(600, 900);
+    const tampered = {
+      spec: { ...plan.spec, dotDiameterMm: 5.0 },
+      markers: plan.markers.map((m) => ({ ...m, diameterMm: 5.0 })),
+    };
+    const res = validatePlan(tampered);
+    assert.equal(res.guidanceCheckMet, false);
+    assert.equal(res.targetMet, false);
+    assert.ok(res.issues.some((i) => i.code === "UNDERSIZED_MARKER"));
+    assert.ok(res.issues.some((i) => i.code === "SPEC_MISMATCH"));
+  });
+
+  test("tampered target pitch (60 mm) cannot pass validator", () => {
+    const plan = generatePlan(600, 900);
+    const tampered = { ...plan, spec: { ...plan.spec, targetPitchMm: 60 } };
+    const res = validatePlan(tampered);
+    assert.equal(res.targetMet, false);
+    assert.equal(res.guidanceCheckMet, false);
+    assert.ok(res.issues.some((i) => i.code === "SPEC_MISMATCH"));
+  });
+
+  test("tampered guidance clear gap (999 mm) still enforces 50.8 mm threshold", () => {
+    const plan = generatePlan(600, 900);
+    const withHole = removeMarker(plan, { row: 8, col: 7 });
+    const tampered = { ...withHole, spec: { ...withHole.spec, guidanceClearGapMm: 999 } };
+    const res = validatePlan(tampered);
+    assert.equal(res.guidanceCheckMet, false);
+    assert.ok(res.issues.some((i) => i.code === "SPEC_MISMATCH"));
+    assert.ok(res.issues.some((i) => i.code === "GUIDANCE_CLEAR_GAP_EXCEEDED"));
+  });
+
+  test("corrupted rows/columns in spec are caught as SPEC_MISMATCH", () => {
+    const plan = generatePlan(600, 900);
+    const tampered = { ...plan, spec: { ...plan.spec, rows: 10, columns: 7 } };
+    const res = validatePlan(tampered);
+    assert.equal(res.targetMet, false);
+    assert.equal(res.guidanceCheckMet, false);
+    assert.ok(res.issues.some((i) => i.code === "SPEC_MISMATCH"));
+  });
+
+  test("repairPlan restores canonical plan from corrupted input and is idempotent", () => {
+    const corrupted = {
+      spec: {
+        paneWidthMm: 600,
+        paneHeightMm: 900,
+        targetPitchMm: 60,
+        guidanceClearGapMm: 999,
+        dotDiameterMm: 5.0,
+        rows: 5,
+        columns: 5,
+      },
+      markers: [{ id: "bad", row: 0, col: 0, xMm: 12.3, yMm: 45.6, diameterMm: 5.0 }],
+    };
+    const rep1 = repairPlan(corrupted);
+    assert.equal(rep1.spec.targetPitchMm, 45);
+    assert.equal(rep1.spec.guidanceClearGapMm, 50.8);
+    assert.equal(rep1.spec.dotDiameterMm, 6.35);
+    assert.equal(rep1.spec.rows, 20);
+    assert.equal(rep1.spec.columns, 14);
+    assert.equal(rep1.markers.length, 280);
+
+    const val1 = validatePlan(rep1);
+    assert.equal(val1.targetMet, true);
+    assert.equal(val1.guidanceCheckMet, true);
+    assert.equal(val1.issues.length, 0);
+
+    const rep2 = repairPlan(rep1);
+    assert.deepEqual(rep2, rep1);
+  });
+});
+
 // 6. Property-Based Testing
 describe("6. Property-Based Testing", () => {
   test("verifies mathematical invariants across 100,000 seeded dimension pairs (scalar sweep)", () => {

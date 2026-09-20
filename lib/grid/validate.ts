@@ -23,8 +23,6 @@ export interface ValidatePlanInput {
   paneWidthMm: number;
   paneHeightMm: number;
   markers: Marker[];
-  targetPitchMm?: number;
-  dotDiameterMm?: number;
 }
 
 const EPSILON = 1e-4;
@@ -38,14 +36,6 @@ export function validatePlan(
   const paneHeightMm =
     "spec" in input ? input.spec.paneHeightMm : input.paneHeightMm;
   const markers = input.markers;
-  const targetPitch =
-    "spec" in input
-      ? input.spec.targetPitchMm
-      : input.targetPitchMm ?? TARGET_PITCH_MM;
-  const minDotDiameter =
-    "spec" in input
-      ? input.spec.dotDiameterMm
-      : input.dotDiameterMm ?? DOT_DIAMETER_MM;
 
   const issues: ValidationIssue[] = [];
 
@@ -73,13 +63,63 @@ export function validatePlan(
     };
   }
 
-  // 2. Expected Topology Calculation
-  const expectedCols = Math.ceil(paneWidthMm / targetPitch);
-  const expectedRows = Math.ceil(paneHeightMm / targetPitch);
+  // 2. Expected Canonical Topology (Always derived from locked constants)
+  const expectedCols = Math.ceil(paneWidthMm / TARGET_PITCH_MM);
+  const expectedRows = Math.ceil(paneHeightMm / TARGET_PITCH_MM);
   const expectedPitchX = paneWidthMm / expectedCols;
   const expectedPitchY = paneHeightMm / expectedRows;
 
-  // 3. Empty Plan Check
+  // 3. Spec Integrity Check (Detect inconsistent/tampered GeneratedPlan metadata)
+  if ("spec" in input && input.spec) {
+    const spec = input.spec;
+
+    if (Math.abs(spec.targetPitchMm - TARGET_PITCH_MM) > EPSILON) {
+      issues.push({
+        code: "SPEC_MISMATCH",
+        message: `Plan spec.targetPitchMm (${spec.targetPitchMm}) does not match locked policy (${TARGET_PITCH_MM} mm).`,
+        value: spec.targetPitchMm,
+        threshold: TARGET_PITCH_MM,
+      });
+    }
+
+    if (Math.abs(spec.guidanceClearGapMm - GUIDANCE_CLEAR_GAP_MM) > EPSILON) {
+      issues.push({
+        code: "SPEC_MISMATCH",
+        message: `Plan spec.guidanceClearGapMm (${spec.guidanceClearGapMm}) does not match locked policy (${GUIDANCE_CLEAR_GAP_MM} mm).`,
+        value: spec.guidanceClearGapMm,
+        threshold: GUIDANCE_CLEAR_GAP_MM,
+      });
+    }
+
+    if (Math.abs(spec.dotDiameterMm - DOT_DIAMETER_MM) > EPSILON) {
+      issues.push({
+        code: "SPEC_MISMATCH",
+        message: `Plan spec.dotDiameterMm (${spec.dotDiameterMm}) does not match locked policy (${DOT_DIAMETER_MM} mm).`,
+        value: spec.dotDiameterMm,
+        threshold: DOT_DIAMETER_MM,
+      });
+    }
+
+    if (spec.rows !== expectedRows) {
+      issues.push({
+        code: "SPEC_MISMATCH",
+        message: `Plan spec.rows (${spec.rows}) does not match canonical rows (${expectedRows}).`,
+        value: spec.rows,
+        threshold: expectedRows,
+      });
+    }
+
+    if (spec.columns !== expectedCols) {
+      issues.push({
+        code: "SPEC_MISMATCH",
+        message: `Plan spec.columns (${spec.columns}) does not match canonical columns (${expectedCols}).`,
+        value: spec.columns,
+        threshold: expectedCols,
+      });
+    }
+  }
+
+  // 4. Empty Plan Check
   if (!markers || markers.length === 0) {
     issues.push({
       code: "EMPTY_PLAN",
@@ -100,7 +140,7 @@ export function validatePlan(
     };
   }
 
-  // 4. Marker-level Checks & Cell Map Population
+  // 5. Marker-level Checks & Cell Map Population
   const cellMap = new Map<string, Marker>();
   const duplicateCells = new Set<string>();
 
@@ -122,15 +162,15 @@ export function validatePlan(
     }
 
     // Check diameter
-    if (marker.diameterMm < minDotDiameter - EPSILON) {
+    if (marker.diameterMm < DOT_DIAMETER_MM - EPSILON) {
       issues.push({
         code: "UNDERSIZED_MARKER",
-        message: `Marker ${marker.id} diameter (${marker.diameterMm} mm) is less than required minimum ${minDotDiameter} mm.`,
+        message: `Marker ${marker.id} diameter (${marker.diameterMm} mm) is less than required minimum ${DOT_DIAMETER_MM} mm.`,
         markerId: marker.id,
         row: marker.row,
         col: marker.col,
         value: marker.diameterMm,
-        threshold: minDotDiameter,
+        threshold: DOT_DIAMETER_MM,
       });
     }
 
@@ -381,19 +421,20 @@ export function validatePlan(
       i.code === "OFF_GRID_MARKER" ||
       i.code === "MISSING_CELL" ||
       i.code === "FULL_ROW_MISSING" ||
-      i.code === "FULL_COLUMN_MISSING"
+      i.code === "FULL_COLUMN_MISSING" ||
+      i.code === "SPEC_MISMATCH"
   );
 
   // Check target pitch
   const pitchExceeded =
-    maxCenterPitchXmm > targetPitch + EPSILON ||
-    maxCenterPitchYmm > targetPitch + EPSILON;
+    maxCenterPitchXmm > TARGET_PITCH_MM + EPSILON ||
+    maxCenterPitchYmm > TARGET_PITCH_MM + EPSILON;
 
   if (pitchExceeded) {
     issues.push({
       code: "TARGET_PITCH_EXCEEDED",
-      message: `Center pitch (X: ${maxCenterPitchXmm.toFixed(2)} mm, Y: ${maxCenterPitchYmm.toFixed(2)} mm) exceeds engineering target of ${targetPitch} mm.`,
-      threshold: targetPitch,
+      message: `Center pitch (X: ${maxCenterPitchXmm.toFixed(2)} mm, Y: ${maxCenterPitchYmm.toFixed(2)} mm) exceeds engineering target of ${TARGET_PITCH_MM} mm.`,
+      threshold: TARGET_PITCH_MM,
     });
   }
 

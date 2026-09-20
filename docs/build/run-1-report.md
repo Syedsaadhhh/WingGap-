@@ -46,7 +46,7 @@ RUN 1 PASSED
   - Guidance spacing check: `PASSED`
   - Idempotent: repeated repair yields identical plan
 
-## Adversarial Fixtures Tested
+## Adversarial & Hostile Policy Fixtures Tested
 1. Interior deletion (exposes affected clear gap $> 50.8\text{ mm}$)
 2. Edge deletion (exposes boundary clearance $> 50.8\text{ mm}$)
 3. Complete row deletion (caught as `FULL_ROW_MISSING`, gap $= W$)
@@ -60,11 +60,22 @@ RUN 1 PASSED
 11. Non-finite input ($NaN$, $\infty$, caught as `NON_FINITE_INPUT`)
 12. Invalid dimensions ($< 100\text{ mm}$, $> 3000\text{ mm}$, negative, zero)
 13. Repeated repair (verified idempotent)
+14. Hostile spec dot diameter weakening ($5.0\text{ mm}$, caught as `UNDERSIZED_MARKER` and `SPEC_MISMATCH`)
+15. Hostile spec target pitch weakening ($60\text{ mm}$, caught as `SPEC_MISMATCH` and `TARGET_PITCH_EXCEEDED`)
+16. Hostile spec guidance clear gap loosening ($999\text{ mm}$, caught as `SPEC_MISMATCH` and `GUIDANCE_CLEAR_GAP_EXCEEDED`)
+17. Hostile spec row/col corruption (caught as `SPEC_MISMATCH`)
+18. Hostile plan repair canonical restoration (tampered pitch/gap/diameter/topology restored to locked constants; idempotent)
 
 ## Property Testing
 - **100,000 Seeded Scalar Sweep**: Verified pitch $\le 45\text{ mm}$, clear axial gaps $\le 50.8\text{ mm}$, boundary clearances $\le 50.8\text{ mm}$ across continuous $[100, 3000]\text{ mm}$ range.
 - **200 Bounded Randomized Plans**: Verified generation $\to$ validation $\to$ deletion $\to$ rejection $\to$ repair $\to$ pass roundtrip.
 
+## Verification Gate
+- **ESLint**: Passed (`✔ No ESLint warnings or errors`)
+- **TypeScript**: Passed (`tsc --noEmit` 0 errors)
+- **Vitest**: 9 test files, 46 tests passed (0 failures)
+- **Next.js Production Build**: Compiled successfully, all 4 static routes prerendered
+
 ## NextStep Hacks Alignment & RUN 2 Readiness
-- RUN 1 Truth Layer is fully established and locked.
+- RUN 1 Truth Layer is hardened, fully tested, policy-independent, and locked.
 - Ready for RUN 2 — EXPERIENCE LAYER (camera capture, frozen frame, corner selection, interactive inspector, guide, science).
