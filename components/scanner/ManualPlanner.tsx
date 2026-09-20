@@ -40,12 +40,14 @@ export default function ManualPlanner({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const svgContainerRef = useRef<SVGSVGElement | null>(null);
+  const widthMmRef = useRef<number | null>(null);
+  const heightMmRef = useRef<number | null>(null);
 
   const numWidth = parseFloat(widthInput);
   const numHeight = parseFloat(heightInput);
   const hasBoth = Number.isFinite(numWidth) && Number.isFinite(numHeight) && numWidth > 0 && numHeight > 0;
-  const wMm = hasBoth ? toMm(numWidth, unit) : NaN;
-  const hMm = hasBoth ? toMm(numHeight, unit) : NaN;
+  const wMm = hasBoth ? widthMmRef.current ?? toMm(numWidth, unit) : NaN;
+  const hMm = hasBoth ? heightMmRef.current ?? toMm(numHeight, unit) : NaN;
 
   const handleUnitChange = (newUnit: MeasurementUnit) => {
     if (newUnit === unit) return;
@@ -53,7 +55,7 @@ export default function ManualPlanner({
     if (widthInput.trim() !== "") {
       const val = parseFloat(widthInput);
       if (Number.isFinite(val) && val > 0) {
-        const mm = toMm(val, unit);
+        const mm = widthMmRef.current ?? toMm(val, unit);
         const converted = fromMm(mm, newUnit);
         setWidthInput(String(Math.round(converted * 100) / 100));
       }
@@ -62,7 +64,7 @@ export default function ManualPlanner({
     if (heightInput.trim() !== "") {
       const val = parseFloat(heightInput);
       if (Number.isFinite(val) && val > 0) {
-        const mm = toMm(val, unit);
+        const mm = heightMmRef.current ?? toMm(val, unit);
         const converted = fromMm(mm, newUnit);
         setHeightInput(String(Math.round(converted * 100) / 100));
       }
@@ -243,7 +245,14 @@ export default function ManualPlanner({
               min="0"
               required
               value={widthInput}
-              onChange={(e) => setWidthInput(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setWidthInput(value);
+                const parsed = parseFloat(value);
+                widthMmRef.current = Number.isFinite(parsed) && parsed > 0
+                  ? toMm(parsed, unit)
+                  : null;
+              }}
               className="w-full px-3 py-2 rounded-lg border border-line bg-surface-raised text-ink font-mono text-base focus:outline-none focus:ring-2 focus:ring-protect"
             />
           </div>
@@ -257,7 +266,14 @@ export default function ManualPlanner({
               min="0"
               required
               value={heightInput}
-              onChange={(e) => setHeightInput(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setHeightInput(value);
+                const parsed = parseFloat(value);
+                heightMmRef.current = Number.isFinite(parsed) && parsed > 0
+                  ? toMm(parsed, unit)
+                  : null;
+              }}
               className="w-full px-3 py-2 rounded-lg border border-line bg-surface-raised text-ink font-mono text-base focus:outline-none focus:ring-2 focus:ring-protect"
             />
           </div>

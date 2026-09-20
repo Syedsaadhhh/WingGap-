@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   toMm,
   fromMm,
@@ -36,6 +36,12 @@ export default function DimensionForm({
   );
   const [unit, setUnit] = useState<MeasurementUnit>(initialUnit);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const widthMmRef = useRef<number | null>(
+    initialWidth !== undefined ? toMm(initialWidth, initialUnit) : null
+  );
+  const heightMmRef = useRef<number | null>(
+    initialHeight !== undefined ? toMm(initialHeight, initialUnit) : null
+  );
 
   const handleUnitChange = (newUnit: MeasurementUnit) => {
     if (newUnit === unit) return;
@@ -43,7 +49,7 @@ export default function DimensionForm({
     if (widthInput.trim() !== "") {
       const val = parseFloat(widthInput);
       if (Number.isFinite(val) && val > 0) {
-        const mm = toMm(val, unit);
+        const mm = widthMmRef.current ?? toMm(val, unit);
         const converted = fromMm(mm, newUnit);
         setWidthInput(String(Math.round(converted * 100) / 100));
       }
@@ -52,7 +58,7 @@ export default function DimensionForm({
     if (heightInput.trim() !== "") {
       const val = parseFloat(heightInput);
       if (Number.isFinite(val) && val > 0) {
-        const mm = toMm(val, unit);
+        const mm = heightMmRef.current ?? toMm(val, unit);
         const converted = fromMm(mm, newUnit);
         setHeightInput(String(Math.round(converted * 100) / 100));
       }
@@ -65,8 +71,8 @@ export default function DimensionForm({
   const numHeight = parseFloat(heightInput);
 
   const hasBoth = Number.isFinite(numWidth) && Number.isFinite(numHeight) && numWidth > 0 && numHeight > 0;
-  const wMm = hasBoth ? toMm(numWidth, unit) : NaN;
-  const hMm = hasBoth ? toMm(numHeight, unit) : NaN;
+  const wMm = hasBoth ? widthMmRef.current ?? toMm(numWidth, unit) : NaN;
+  const hMm = hasBoth ? heightMmRef.current ?? toMm(numHeight, unit) : NaN;
 
   const validation = hasBoth ? validatePaneDimensions(wMm, hMm) : null;
   const isValid = validation?.valid === true;
@@ -149,7 +155,12 @@ export default function DimensionForm({
             required
             value={widthInput}
             onChange={(e) => {
-              setWidthInput(e.target.value);
+              const value = e.target.value;
+              setWidthInput(value);
+              const parsed = parseFloat(value);
+              widthMmRef.current = Number.isFinite(parsed) && parsed > 0
+                ? toMm(parsed, unit)
+                : null;
               setErrorMsg(null);
             }}
             placeholder={unit === "cm" ? "e.g. 75" : "e.g. 30"}
@@ -172,7 +183,12 @@ export default function DimensionForm({
             required
             value={heightInput}
             onChange={(e) => {
-              setHeightInput(e.target.value);
+              const value = e.target.value;
+              setHeightInput(value);
+              const parsed = parseFloat(value);
+              heightMmRef.current = Number.isFinite(parsed) && parsed > 0
+                ? toMm(parsed, unit)
+                : null;
               setErrorMsg(null);
             }}
             placeholder={unit === "cm" ? "e.g. 120" : "e.g. 48"}
