@@ -152,7 +152,7 @@ export default function DimensionForm({
               setWidthInput(e.target.value);
               setErrorMsg(null);
             }}
-            placeholder={unit === "cm" ? "e.g. 60" : "e.g. 24"}
+            placeholder={unit === "cm" ? "e.g. 75" : "e.g. 30"}
             className="w-full px-3.5 py-2.5 rounded-lg border border-line bg-surface-raised text-ink font-mono text-base focus:outline-none focus:ring-2 focus:ring-protect"
           />
         </div>
@@ -175,7 +175,7 @@ export default function DimensionForm({
               setHeightInput(e.target.value);
               setErrorMsg(null);
             }}
-            placeholder={unit === "cm" ? "e.g. 90" : "e.g. 36"}
+            placeholder={unit === "cm" ? "e.g. 120" : "e.g. 48"}
             className="w-full px-3.5 py-2.5 rounded-lg border border-line bg-surface-raised text-ink font-mono text-base focus:outline-none focus:ring-2 focus:ring-protect"
           />
         </div>

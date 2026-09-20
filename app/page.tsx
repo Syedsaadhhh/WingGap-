@@ -8,27 +8,32 @@ import { buildScannerUrl } from "../lib/handoff/url.ts";
 
 export default function LandingPage() {
   const [copied, setCopied] = useState(false);
-  const [scannerUrl, setScannerUrl] = useState<string>("/scan?source=qr");
+  const [scannerUrl, setScannerUrl] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const url = buildScannerUrl(window.location.origin);
       setScannerUrl(url);
-      QRCode.toDataURL(url, {
-        width: 160,
-        margin: 1,
-        color: {
-          dark: "#171A17",
-          light: "#FFFFFF",
-        },
-      })
-        .then((dataUri) => setQrDataUrl(dataUri))
-        .catch((err) => console.error("Failed to generate QR", err));
+      if (url) {
+        QRCode.toDataURL(url, {
+          width: 160,
+          margin: 1,
+          color: {
+            dark: "#171A17",
+            light: "#FFFFFF",
+          },
+        })
+          .then((dataUri) => setQrDataUrl(dataUri))
+          .catch((err) => console.error("Failed to generate QR", err));
+      } else {
+        setQrDataUrl(null);
+      }
     }
   }, []);
 
   const handleCopyLink = () => {
+    if (!scannerUrl) return;
     if (typeof navigator !== "undefined" && navigator.clipboard) {
       navigator.clipboard.writeText(scannerUrl).then(() => {
         setCopied(true);
@@ -121,31 +126,41 @@ export default function LandingPage() {
             Scan with your mobile device to open WingGap&apos;s camera directly at the window.
           </p>
 
-          <div className="inline-block p-4 bg-white rounded-xl border border-line shadow-inner">
-            {qrDataUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={qrDataUrl}
-                alt="Scan with mobile phone to open WingGap camera"
-                width={140}
-                height={140}
-                className="mx-auto"
-              />
-            ) : (
-              <div className="w-[140px] h-[140px] flex items-center justify-center text-xs font-mono text-ink-secondary">
-                Generating QR...
+          {scannerUrl && qrDataUrl ? (
+            <>
+              <div className="inline-block p-4 bg-white rounded-xl border border-line shadow-inner">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={qrDataUrl}
+                  alt="Scan with mobile phone to open WingGap camera"
+                  width={140}
+                  height={140}
+                  className="mx-auto"
+                />
               </div>
-            )}
-          </div>
 
-          <div>
-            <button
-              onClick={handleCopyLink}
-              className="text-xs font-mono text-ink-secondary hover:text-ink border border-line px-3 py-1.5 rounded bg-canvas hover:bg-surface transition"
-            >
-              {copied ? "✓ Copied /scan link" : "Copy scanner URL"}
-            </button>
-          </div>
+              <div>
+                <button
+                  onClick={handleCopyLink}
+                  className="text-xs font-mono text-ink-secondary hover:text-ink border border-line px-3 py-1.5 rounded bg-canvas hover:bg-surface transition"
+                >
+                  {copied ? "✓ Copied /scan link" : "Copy scanner URL"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="p-6 bg-canvas rounded-lg border border-line/60 space-y-3 max-w-sm mx-auto">
+              <p className="text-xs text-ink-secondary">
+                To continue on a mobile device, open WingGap directly in your phone&apos;s browser.
+              </p>
+              <Link
+                href="/scan"
+                className="inline-flex min-h-[40px] px-4 items-center justify-center bg-protect text-white text-xs font-semibold rounded-lg hover:bg-protect/90 transition shadow-sm"
+              >
+                Open scanner directly
+              </Link>
+            </div>
+          )}
         </section>
       </main>
 

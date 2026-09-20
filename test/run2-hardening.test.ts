@@ -190,13 +190,50 @@ describe("RUN 2 Hardening Test Suite — Code Review Verifications", () => {
 
   // 3. buildScannerUrl
   describe("3. Field Handoff URL Builder (buildScannerUrl)", () => {
-    it("respects canonical NEXT_PUBLIC_APP_URL precedence over runtimeOrigin", () => {
-      vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://winggap.example.org");
+    it("respects configured Vercel HTTPS URL over runtime origin", () => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://winggap-syedsaadhhh.vercel.app");
+      const url = buildScannerUrl("https://other-runtime.vercel.app");
+      expect(url).toBe("https://winggap-syedsaadhhh.vercel.app/scan?source=qr");
+    });
+
+    it("uses runtime HTTPS origin when NEXT_PUBLIC_APP_URL is not configured", () => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("NEXT_PUBLIC_APP_URL", "");
+      const url = buildScannerUrl("https://winggap-production.vercel.app");
+      expect(url).toBe("https://winggap-production.vercel.app/scan?source=qr");
+    });
+
+    it("rejects localhost in production environment and returns null if no valid runtime HTTPS exists", () => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("NEXT_PUBLIC_APP_URL", "http://localhost:3000");
+      const url = buildScannerUrl();
+      expect(url).toBeNull();
+    });
+
+    it("rejects loopback/localhost in production even if runtime origin is localhost", () => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("NEXT_PUBLIC_APP_URL", "");
       const url = buildScannerUrl("http://localhost:3000");
-      expect(url).toBe("https://winggap.example.org/scan?source=qr");
+      expect(url).toBeNull();
+    });
+
+    it("falls back to runtime HTTPS origin when configured URL is malformed", () => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("NEXT_PUBLIC_APP_URL", "not-a-valid-url");
+      const url = buildScannerUrl("https://valid-runtime.vercel.app");
+      expect(url).toBe("https://valid-runtime.vercel.app/scan?source=qr");
+    });
+
+    it("never invents an unowned domain (e.g. winggap.app) when neither configured nor runtime HTTPS exists", () => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("NEXT_PUBLIC_APP_URL", "");
+      const url = buildScannerUrl();
+      expect(url).toBeNull();
     });
 
     it("prevents double slashes before path", () => {
+      vi.stubEnv("NODE_ENV", "production");
       vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://winggap.example.org///");
       const url = buildScannerUrl();
       expect(url).toBe("https://winggap.example.org/scan?source=qr");
@@ -205,8 +242,10 @@ describe("RUN 2 Hardening Test Suite — Code Review Verifications", () => {
     });
 
     it("strictly appends /scan?source=qr without secrets, tokens, or state", () => {
-      const url = buildScannerUrl("https://preview.winggap.app");
-      const parsed = new URL(url);
+      vi.stubEnv("NODE_ENV", "production");
+      const url = buildScannerUrl("https://preview.vercel.app");
+      expect(url).not.toBeNull();
+      const parsed = new URL(url!);
       expect(parsed.pathname).toBe("/scan");
       expect(parsed.search).toBe("?source=qr");
       expect(parsed.searchParams.get("source")).toBe("qr");
@@ -216,18 +255,11 @@ describe("RUN 2 Hardening Test Suite — Code Review Verifications", () => {
       expect(parsed.searchParams.has("width")).toBe(false);
     });
 
-    it("rejects localhost in production environment", () => {
-      vi.stubEnv("NODE_ENV", "production");
-      vi.stubEnv("NEXT_PUBLIC_APP_URL", "http://localhost:3000");
-      const url = buildScannerUrl();
-      expect(url).not.toContain("localhost");
-      expect(url.startsWith("https://")).toBe(true);
-    });
-
-    it("falls back gracefully when configured origin is invalid", () => {
-      vi.stubEnv("NEXT_PUBLIC_APP_URL", "not-a-valid-url");
-      const url = buildScannerUrl("https://valid-runtime.org");
-      expect(url).toBe("https://valid-runtime.org/scan?source=qr");
+    it("allows http and localhost in development mode", () => {
+      vi.stubEnv("NODE_ENV", "development");
+      vi.stubEnv("NEXT_PUBLIC_APP_URL", "");
+      const url = buildScannerUrl("http://localhost:3000");
+      expect(url).toBe("http://localhost:3000/scan?source=qr");
     });
   });
 
