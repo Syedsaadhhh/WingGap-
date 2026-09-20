@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --canvas: #F4F4EE;
+  --surface: #FAFAF6;
+  --surface-raised: #FFFFFF;
+  --ink: #171A17;
+  --ink-secondary: #525852;
+  --line: rgba(23, 26, 23, 0.12);
+  --protect: #1F6B4F;
+  --protect-soft: #DDEBE4;
+  --measure: #F4C95D;
+  --measure-strong: #E5B63F;
+  --danger: #C84D42;
+  --danger-soft: #F6DFDC;
+  --camera-chrome: rgba(12, 14, 13, 0.84);
+  --camera-text: #F7F8F4;
+}
+
+body {
+  background-color: var(--canvas);
+  color: var(--ink);
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
