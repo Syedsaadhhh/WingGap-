@@ -1,16 +1,36 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import QRCode from "qrcode";
 import NavHeader from "../components/NavHeader";
+import { buildScannerUrl } from "../lib/handoff/url.ts";
 
 export default function LandingPage() {
   const [copied, setCopied] = useState(false);
+  const [scannerUrl, setScannerUrl] = useState<string>("/scan?source=qr");
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const url = buildScannerUrl(window.location.origin);
+      setScannerUrl(url);
+      QRCode.toDataURL(url, {
+        width: 160,
+        margin: 1,
+        color: {
+          dark: "#171A17",
+          light: "#FFFFFF",
+        },
+      })
+        .then((dataUri) => setQrDataUrl(dataUri))
+        .catch((err) => console.error("Failed to generate QR", err));
+    }
+  }, []);
 
   const handleCopyLink = () => {
-    if (typeof window !== "undefined") {
-      const scanUrl = `${window.location.origin}/scan`;
-      navigator.clipboard.writeText(scanUrl).then(() => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(scannerUrl).then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       });
@@ -102,53 +122,20 @@ export default function LandingPage() {
           </p>
 
           <div className="inline-block p-4 bg-white rounded-xl border border-line shadow-inner">
-            {/* Standard high-contrast QR Matrix representation for /scan */}
-            <svg
-              viewBox="0 0 140 140"
-              width="140"
-              height="140"
-              className="mx-auto"
-              aria-label="QR Code to /scan"
-            >
-              <rect width="140" height="140" fill="#FFFFFF" />
-              {/* Position markers */}
-              <rect x="10" y="10" width="35" height="35" fill="#171A17" />
-              <rect x="15" y="15" width="25" height="25" fill="#FFFFFF" />
-              <rect x="20" y="20" width="15" height="15" fill="#171A17" />
-
-              <rect x="95" y="10" width="35" height="35" fill="#171A17" />
-              <rect x="100" y="15" width="25" height="25" fill="#FFFFFF" />
-              <rect x="105" y="20" width="15" height="15" fill="#171A17" />
-
-              <rect x="10" y="95" width="35" height="35" fill="#171A17" />
-              <rect x="15" y="100" width="25" height="25" fill="#FFFFFF" />
-              <rect x="20" y="105" width="15" height="15" fill="#171A17" />
-
-              {/* Data pattern modules */}
-              <rect x="55" y="15" width="10" height="10" fill="#171A17" />
-              <rect x="75" y="15" width="10" height="10" fill="#171A17" />
-              <rect x="55" y="35" width="10" height="10" fill="#171A17" />
-              <rect x="65" y="25" width="10" height="10" fill="#171A17" />
-              <rect x="20" y="55" width="10" height="10" fill="#171A17" />
-              <rect x="40" y="55" width="10" height="10" fill="#171A17" />
-              <rect x="60" y="55" width="10" height="10" fill="#171A17" />
-              <rect x="80" y="55" width="10" height="10" fill="#171A17" />
-              <rect x="100" y="55" width="10" height="10" fill="#171A17" />
-              <rect x="120" y="55" width="10" height="10" fill="#171A17" />
-              <rect x="30" y="75" width="10" height="10" fill="#171A17" />
-              <rect x="50" y="75" width="10" height="10" fill="#171A17" />
-              <rect x="70" y="75" width="10" height="10" fill="#171A17" />
-              <rect x="90" y="75" width="10" height="10" fill="#171A17" />
-              <rect x="110" y="75" width="10" height="10" fill="#171A17" />
-              <rect x="55" y="95" width="10" height="10" fill="#171A17" />
-              <rect x="75" y="95" width="10" height="10" fill="#171A17" />
-              <rect x="95" y="95" width="10" height="10" fill="#171A17" />
-              <rect x="115" y="95" width="10" height="10" fill="#171A17" />
-              <rect x="55" y="115" width="10" height="10" fill="#171A17" />
-              <rect x="75" y="115" width="10" height="10" fill="#171A17" />
-              <rect x="95" y="115" width="10" height="10" fill="#171A17" />
-              <rect x="115" y="115" width="10" height="10" fill="#171A17" />
-            </svg>
+            {qrDataUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={qrDataUrl}
+                alt="Scan with mobile phone to open WingGap camera"
+                width={140}
+                height={140}
+                className="mx-auto"
+              />
+            ) : (
+              <div className="w-[140px] h-[140px] flex items-center justify-center text-xs font-mono text-ink-secondary">
+                Generating QR...
+              </div>
+            )}
           </div>
 
           <div>

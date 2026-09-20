@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import {
   toMm,
+  fromMm,
   validatePaneDimensions,
   type MeasurementUnit,
 } from "../../lib/units/index.ts";
@@ -21,20 +22,44 @@ interface DimensionFormProps {
 }
 
 export default function DimensionForm({
-  initialWidth = 60,
-  initialHeight = 90,
+  initialWidth,
+  initialHeight,
   initialUnit = "cm",
   onGenerate,
   onBack,
 }: DimensionFormProps) {
   const [widthInput, setWidthInput] = useState<string>(
-    initialWidth ? String(initialWidth) : ""
+    initialWidth !== undefined ? String(initialWidth) : ""
   );
   const [heightInput, setHeightInput] = useState<string>(
-    initialHeight ? String(initialHeight) : ""
+    initialHeight !== undefined ? String(initialHeight) : ""
   );
   const [unit, setUnit] = useState<MeasurementUnit>(initialUnit);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const handleUnitChange = (newUnit: MeasurementUnit) => {
+    if (newUnit === unit) return;
+
+    if (widthInput.trim() !== "") {
+      const val = parseFloat(widthInput);
+      if (Number.isFinite(val) && val > 0) {
+        const mm = toMm(val, unit);
+        const converted = fromMm(mm, newUnit);
+        setWidthInput(String(Math.round(converted * 100) / 100));
+      }
+    }
+
+    if (heightInput.trim() !== "") {
+      const val = parseFloat(heightInput);
+      if (Number.isFinite(val) && val > 0) {
+        const mm = toMm(val, unit);
+        const converted = fromMm(mm, newUnit);
+        setHeightInput(String(Math.round(converted * 100) / 100));
+      }
+    }
+
+    setUnit(newUnit);
+  };
 
   const numWidth = parseFloat(widthInput);
   const numHeight = parseFloat(heightInput);
@@ -84,7 +109,7 @@ export default function DimensionForm({
         <div className="inline-flex rounded-lg border border-line p-0.5 bg-canvas">
           <button
             type="button"
-            onClick={() => setUnit("cm")}
+            onClick={() => handleUnitChange("cm")}
             className={`px-3 py-1 rounded text-xs font-mono font-medium transition ${
               unit === "cm"
                 ? "bg-surface-raised text-ink shadow-sm font-bold"
@@ -95,7 +120,7 @@ export default function DimensionForm({
           </button>
           <button
             type="button"
-            onClick={() => setUnit("in")}
+            onClick={() => handleUnitChange("in")}
             className={`px-3 py-1 rounded text-xs font-mono font-medium transition ${
               unit === "in"
                 ? "bg-surface-raised text-ink shadow-sm font-bold"

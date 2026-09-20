@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import NavHeader from "../../components/NavHeader";
 import { loadScanSession, type RestoredSession } from "../../lib/session/storage.ts";
-import { generatePlan } from "../../lib/grid/generate.ts";
 import { DOT_DIAMETER_MM } from "../../lib/grid/spec.ts";
 
 export default function GuidePage() {
@@ -17,33 +16,42 @@ export default function GuidePage() {
     if (loaded && loaded.data.plan) {
       setSession(loaded);
     } else {
-      // Default 600 x 900 mm reference plan fallback
-      const defaultPlan = generatePlan(600, 900);
-      setSession({
-        data: {
-          sessionId: "reference_600x900",
-          capturedAt: Date.now(),
-          imageDataUrl: null,
-          intrinsicWidth: 600,
-          intrinsicHeight: 900,
-          corners: null,
-          paneWidthMm: 600,
-          paneHeightMm: 900,
-          unit: "cm",
-          plan: defaultPlan,
-        },
-        validation: null,
-      });
+      setSession(null);
     }
     setIsLoaded(true);
   }, []);
 
-  if (!isLoaded || !session || !session.data.plan) {
+  if (!isLoaded) {
     return (
       <div className="min-h-screen bg-canvas flex flex-col">
         <NavHeader />
         <main className="max-w-4xl mx-auto px-4 py-12 text-center text-ink-secondary font-mono text-sm">
           Loading installation guide...
+        </main>
+      </div>
+    );
+  }
+
+  if (!session || !session.data.plan) {
+    return (
+      <div className="min-h-screen bg-canvas flex flex-col">
+        <NavHeader />
+        <main className="flex-1 max-w-lg w-full mx-auto px-4 py-16 text-center space-y-6 flex flex-col items-center justify-center">
+          <div className="w-12 h-12 rounded-full bg-surface border border-line flex items-center justify-center text-xl">
+            📐
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-xl font-bold text-ink">No active WingGap plan</h1>
+            <p className="text-sm text-ink-secondary">
+              Scan a window or use the manual planner first.
+            </p>
+          </div>
+          <Link
+            href="/scan"
+            className="inline-flex min-h-[44px] px-5 items-center justify-center bg-protect text-white text-sm font-semibold rounded-lg hover:bg-protect/90 transition shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-protect"
+          >
+            Start a plan
+          </Link>
         </main>
       </div>
     );

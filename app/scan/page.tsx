@@ -12,7 +12,7 @@ import { generatePlan } from "../../lib/grid/generate.ts";
 import { saveScanSession } from "../../lib/session/storage.ts";
 import type { Quad } from "../../lib/geometry/quad.ts";
 import type { GeneratedPlan } from "../../lib/grid/spec.ts";
-import type { MeasurementUnit } from "../../lib/units/index.ts";
+import { fromMm, type MeasurementUnit } from "../../lib/units/index.ts";
 
 type ScannerStep = "capture" | "corners" | "dimensions" | "inspector";
 
@@ -26,8 +26,8 @@ export default function ScanPage() {
   const [captureId, setCaptureId] = useState<string | null>(null);
   const [capturedFrame, setCapturedFrame] = useState<CapturedFrame | null>(null);
   const [corners, setCorners] = useState<Quad | null>(null);
-  const [paneWidthMm, setPaneWidthMm] = useState<number>(600);
-  const [paneHeightMm, setPaneHeightMm] = useState<number>(900);
+  const [paneWidthMm, setPaneWidthMm] = useState<number | null>(null);
+  const [paneHeightMm, setPaneHeightMm] = useState<number | null>(null);
   const [unit, setUnit] = useState<MeasurementUnit>("cm");
   const [plan, setPlan] = useState<GeneratedPlan | null>(null);
 
@@ -64,6 +64,8 @@ export default function ScanPage() {
     setCaptureId(null);
     setCapturedFrame(null);
     setCorners(null);
+    setPaneWidthMm(null);
+    setPaneHeightMm(null);
     setPlan(null);
     setStep("capture");
   };
@@ -77,7 +79,7 @@ export default function ScanPage() {
     saveScanSession({
       sessionId: captureId ?? `manual_${Date.now()}`,
       capturedAt: Date.now(),
-      imageDataUrl: capturedFrame?.dataUrl ?? null,
+      imageDataUrl: null, // Guide never requires raw camera frame
       intrinsicWidth: capturedFrame?.width ?? 0,
       intrinsicHeight: capturedFrame?.height ?? 0,
       corners: corners,
@@ -147,8 +149,8 @@ export default function ScanPage() {
           />
         ) : step === "dimensions" ? (
           <DimensionForm
-            initialWidth={paneWidthMm ? paneWidthMm / 10 : 60}
-            initialHeight={paneHeightMm ? paneHeightMm / 10 : 90}
+            initialWidth={paneWidthMm !== null ? fromMm(paneWidthMm, unit) : undefined}
+            initialHeight={paneHeightMm !== null ? fromMm(paneHeightMm, unit) : undefined}
             initialUnit={unit}
             onGenerate={handleDimensionsGenerate}
             onBack={handleBackToCorners}
@@ -160,6 +162,7 @@ export default function ScanPage() {
             initialPlan={plan}
             onProceedToGuide={handleProceedToGuide}
             onRetake={handleRetake}
+            onBackToDimensions={() => setStep("dimensions")}
           />
         ) : (
           <div className="text-center py-12 space-y-4">

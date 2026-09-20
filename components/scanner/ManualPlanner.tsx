@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useRef, useMemo } from "react";
-import { toMm, validatePaneDimensions, type MeasurementUnit } from "../../lib/units/index.ts";
+import { toMm, fromMm, validatePaneDimensions, type MeasurementUnit } from "../../lib/units/index.ts";
 import { generatePlan } from "../../lib/grid/generate.ts";
 import { validatePlan } from "../../lib/grid/validate.ts";
 import { removeMarker, repairPlan } from "../../lib/grid/repair.ts";
+import { analyzeMarkerRemoval, type RemovalAnalysis } from "../../lib/grid/analyzeRemoval.ts";
 import {
   DOT_DIAMETER_MM,
   GUIDANCE_CLEAR_GAP_MM,
@@ -23,25 +24,16 @@ export default function ManualPlanner({
   onProceedToGuide,
   onTryCamera,
 }: ManualPlannerProps) {
-  const [widthInput, setWidthInput] = useState<string>("60");
-  const [heightInput, setHeightInput] = useState<string>("90");
+  const [widthInput, setWidthInput] = useState<string>("");
+  const [heightInput, setHeightInput] = useState<string>("");
   const [unit, setUnit] = useState<MeasurementUnit>("cm");
-  const [plan, setPlan] = useState<GeneratedPlan | null>(() => {
-    try {
-      return generatePlan(600, 900);
-    } catch {
-      return null;
-    }
-  });
+  const [plan, setPlan] = useState<GeneratedPlan | null>(null);
 
   const [selectedMarker, setSelectedMarker] = useState<Marker | null>(null);
   const [deletedInfo, setDeletedInfo] = useState<{
     row: number;
     col: number;
-    affectedSpanX: number;
-    affectedSpanY: number;
-    clearGapX: number;
-    clearGapY: number;
+    analysis: RemovalAnalysis;
   } | null>(null);
 
   const [detailsExpanded, setDetailsExpanded] = useState(false);
@@ -54,6 +46,30 @@ export default function ManualPlanner({
   const hasBoth = Number.isFinite(numWidth) && Number.isFinite(numHeight) && numWidth > 0 && numHeight > 0;
   const wMm = hasBoth ? toMm(numWidth, unit) : NaN;
   const hMm = hasBoth ? toMm(numHeight, unit) : NaN;
+
+  const handleUnitChange = (newUnit: MeasurementUnit) => {
+    if (newUnit === unit) return;
+
+    if (widthInput.trim() !== "") {
+      const val = parseFloat(widthInput);
+      if (Number.isFinite(val) && val > 0) {
+        const mm = toMm(val, unit);
+        const converted = fromMm(mm, newUnit);
+        setWidthInput(String(Math.round(converted * 100) / 100));
+      }
+    }
+
+    if (heightInput.trim() !== "") {
+      const val = parseFloat(heightInput);
+      if (Number.isFinite(val) && val > 0) {
+        const mm = toMm(val, unit);
+        const converted = fromMm(mm, newUnit);
+        setHeightInput(String(Math.round(converted * 100) / 100));
+      }
+    }
+
+    setUnit(newUnit);
+  };
 
   const handleGenerate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,24 +148,19 @@ export default function ManualPlanner({
 
     const targetRow = selectedMarker.row;
     const targetCol = selectedMarker.col;
-    const pitchX = plan.spec.paneWidthMm / plan.spec.columns;
-    const pitchY = plan.spec.paneHeightMm / plan.spec.rows;
-
-    const affectedSpanX = 2 * pitchX;
-    const affectedSpanY = 2 * pitchY;
-    const clearGapX = affectedSpanX - DOT_DIAMETER_MM;
-    const clearGapY = affectedSpanY - DOT_DIAMETER_MM;
 
     const updated = removeMarker(plan, selectedMarker.id);
+    const analysis = analyzeMarkerRemoval(updated, {
+      row: targetRow,
+      col: targetCol,
+    });
+
     setPlan(updated);
     setSelectedMarker(null);
     setDeletedInfo({
       row: targetRow,
       col: targetCol,
-      affectedSpanX,
-      affectedSpanY,
-      clearGapX,
-      clearGapY,
+      analysis,
     });
   };
 
@@ -198,7 +209,7 @@ export default function ManualPlanner({
           <div className="inline-flex rounded-lg border border-line p-0.5 bg-canvas">
             <button
               type="button"
-              onClick={() => setUnit("cm")}
+              onClick={() => handleUnitChange("cm")}
               className={`px-3 py-1 rounded text-xs font-mono font-medium transition ${
                 unit === "cm"
                   ? "bg-surface-raised text-ink shadow-sm font-bold"
@@ -209,7 +220,7 @@ export default function ManualPlanner({
             </button>
             <button
               type="button"
-              onClick={() => setUnit("in")}
+              onClick={() => handleUnitChange("in")}
               className={`px-3 py-1 rounded text-xs font-mono font-medium transition ${
                 unit === "in"
                   ? "bg-surface-raised text-ink shadow-sm font-bold"
@@ -383,25 +394,37 @@ export default function ManualPlanner({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
                 <div className="bg-surface p-3 rounded border border-danger/20">
-                  <span className="text-ink-secondary block text-[11px]">Affected center span</span>
+                  <span className="text-ink-secondary block text-[11px]">
+                    {deletedInfo.analysis.primaryMetricLabel}
+                  </span>
                   <span className="text-base font-bold text-ink block mt-0.5">
-                    {Math.max(deletedInfo.affectedSpanX, deletedInfo.affectedSpanY).toFixed(1)} mm
+                    {deletedInfo.analysis.affectedSpanMm.toFixed(1)} mm
                   </span>
                   <span className="text-[10px] text-ink-secondary">
-                    (Target: ≤45.0 mm)
+                    {deletedInfo.analysis.isEdgeDeletion
+                      ? "(To glass edge)"
+                      : "(Target: ≤45.0 mm)"}
                   </span>
                 </div>
 
                 <div className="bg-surface p-3 rounded border border-danger/20">
-                  <span className="text-danger block text-[11px] font-bold">Clear glass between dots</span>
+                  <span className="text-danger block text-[11px] font-bold">
+                    {deletedInfo.analysis.secondaryMetricLabel}
+                  </span>
                   <span className="text-base font-bold text-danger block mt-0.5">
-                    {Math.max(deletedInfo.clearGapX, deletedInfo.clearGapY).toFixed(1)} mm
+                    {deletedInfo.analysis.clearOpeningMm.toFixed(1)} mm
                   </span>
                   <span className="text-[10px] text-danger/80">
-                    (Exceeds {GUIDANCE_CLEAR_GAP_MM} mm guidance ceiling)
+                    {deletedInfo.analysis.clearOpeningMm > GUIDANCE_CLEAR_GAP_MM
+                      ? `(Exceeds ${GUIDANCE_CLEAR_GAP_MM} mm guidance ceiling)`
+                      : `(Guidance ceiling: ${GUIDANCE_CLEAR_GAP_MM} mm)`}
                   </span>
                 </div>
               </div>
+
+              <p className="text-xs text-ink-secondary">
+                Omitting a planned marker increases the checked clear spacing and can exceed the 50.8 mm guidance check.
+              </p>
 
               <button
                 onClick={handleRepair}

@@ -143,7 +143,7 @@ export default function SciencePage() {
               45.0 mm - 6.35 mm = 38.65 mm clear opening
             </div>
             <p>
-              This conservative internal target leaves a built-in safety margin of <strong className="text-ink">12.15 mm</strong> below the maximum published 50.8 mm ceiling, accommodating slight field hand-placement variances during installation.
+              WingGap uses a 45 mm center-pitch target, which creates planning headroom below the selected 50.8 mm clear-spacing check when 6.35 mm dots are used. This is an engineering convention, not a certified installation tolerance.
             </p>
           </div>
         </section>

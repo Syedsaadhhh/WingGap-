@@ -6,6 +6,7 @@ import type { Quad } from "../../lib/geometry/quad.ts";
 import type { GeneratedPlan, Marker, ValidationResult } from "../../lib/grid/spec.ts";
 import { validatePlan } from "../../lib/grid/validate.ts";
 import { removeMarker, repairPlan } from "../../lib/grid/repair.ts";
+import { analyzeMarkerRemoval, type RemovalAnalysis } from "../../lib/grid/analyzeRemoval.ts";
 import { computePaneHomography, applyHomography } from "../../lib/geometry/homography.ts";
 import { intrinsicToContainer, containerToIntrinsic } from "../../lib/camera/displayTransform.ts";
 import { DOT_DIAMETER_MM, GUIDANCE_CLEAR_GAP_MM } from "../../lib/grid/spec.ts";
@@ -16,6 +17,7 @@ interface PlanInspectorProps {
   initialPlan: GeneratedPlan;
   onProceedToGuide: (finalPlan: GeneratedPlan) => void;
   onRetake: () => void;
+  onBackToDimensions?: () => void;
 }
 
 interface ProjectedMarker {
@@ -30,16 +32,14 @@ export default function PlanInspector({
   initialPlan,
   onProceedToGuide,
   onRetake,
+  onBackToDimensions,
 }: PlanInspectorProps) {
   const [plan, setPlan] = useState<GeneratedPlan>(initialPlan);
   const [selectedMarker, setSelectedMarker] = useState<Marker | null>(null);
   const [deletedInfo, setDeletedInfo] = useState<{
     row: number;
     col: number;
-    affectedSpanX: number;
-    affectedSpanY: number;
-    clearGapX: number;
-    clearGapY: number;
+    analysis: RemovalAnalysis;
   } | null>(null);
 
   const [detailsExpanded, setDetailsExpanded] = useState(false);
@@ -153,25 +153,19 @@ export default function PlanInspector({
 
     const targetRow = selectedMarker.row;
     const targetCol = selectedMarker.col;
-    const pitchX = plan.spec.paneWidthMm / plan.spec.columns;
-    const pitchY = plan.spec.paneHeightMm / plan.spec.rows;
-
-    // Center span across single deleted marker is 2 * pitch
-    const affectedSpanX = 2 * pitchX;
-    const affectedSpanY = 2 * pitchY;
-    const clearGapX = affectedSpanX - DOT_DIAMETER_MM;
-    const clearGapY = affectedSpanY - DOT_DIAMETER_MM;
 
     const updated = removeMarker(plan, selectedMarker.id);
+    const analysis = analyzeMarkerRemoval(updated, {
+      row: targetRow,
+      col: targetCol,
+    });
+
     setPlan(updated);
     setSelectedMarker(null);
     setDeletedInfo({
       row: targetRow,
       col: targetCol,
-      affectedSpanX,
-      affectedSpanY,
-      clearGapX,
-      clearGapY,
+      analysis,
     });
   };
 
@@ -198,12 +192,22 @@ export default function PlanInspector({
             {plan.markers.length} of {plan.spec.rows * plan.spec.columns} markers active
           </span>
         </div>
-        <button
-          onClick={onRetake}
-          className="text-xs font-mono px-3 py-1.5 rounded border border-line bg-surface hover:bg-canvas transition focus:outline-none focus-visible:ring-2 focus-visible:ring-ink"
-        >
-          Retake capture
-        </button>
+        <div className="flex items-center space-x-2">
+          {onBackToDimensions && (
+            <button
+              onClick={onBackToDimensions}
+              className="text-xs font-mono px-3 py-1.5 rounded border border-line bg-surface hover:bg-canvas transition focus:outline-none focus-visible:ring-2 focus-visible:ring-ink"
+            >
+              ← Edit dimensions
+            </button>
+          )}
+          <button
+            onClick={onRetake}
+            className="text-xs font-mono px-3 py-1.5 rounded border border-line bg-surface hover:bg-canvas transition focus:outline-none focus-visible:ring-2 focus-visible:ring-ink"
+          >
+            Retake capture
+          </button>
+        </div>
       </div>
 
       {/* Main Projected Perspective Viewport */}
@@ -356,28 +360,36 @@ export default function PlanInspector({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
             <div className="bg-surface p-3 rounded border border-danger/20">
-              <span className="text-ink-secondary block text-[11px]">Affected center span</span>
+              <span className="text-ink-secondary block text-[11px]">
+                {deletedInfo.analysis.primaryMetricLabel}
+              </span>
               <span className="text-base font-bold text-ink block mt-0.5">
-                {Math.max(deletedInfo.affectedSpanX, deletedInfo.affectedSpanY).toFixed(1)} mm
+                {deletedInfo.analysis.affectedSpanMm.toFixed(1)} mm
               </span>
               <span className="text-[10px] text-ink-secondary">
-                (Baseline target: ≤45.0 mm)
+                {deletedInfo.analysis.isEdgeDeletion
+                  ? "(To glass edge)"
+                  : "(Baseline target: ≤45.0 mm)"}
               </span>
             </div>
 
             <div className="bg-surface p-3 rounded border border-danger/20">
-              <span className="text-danger block text-[11px] font-bold">Clear glass between dots</span>
+              <span className="text-danger block text-[11px] font-bold">
+                {deletedInfo.analysis.secondaryMetricLabel}
+              </span>
               <span className="text-base font-bold text-danger block mt-0.5">
-                {Math.max(deletedInfo.clearGapX, deletedInfo.clearGapY).toFixed(1)} mm
+                {deletedInfo.analysis.clearOpeningMm.toFixed(1)} mm
               </span>
               <span className="text-[10px] text-danger/80">
-                (Exceeds {GUIDANCE_CLEAR_GAP_MM} mm maximum threshold)
+                {deletedInfo.analysis.clearOpeningMm > GUIDANCE_CLEAR_GAP_MM
+                  ? `(Exceeds ${GUIDANCE_CLEAR_GAP_MM} mm maximum threshold)`
+                  : `(Guidance ceiling: ${GUIDANCE_CLEAR_GAP_MM} mm)`}
               </span>
             </div>
           </div>
 
           <p className="text-xs text-ink-secondary">
-            Omitted markers leave an untreated opening that exceeds published 50.8 mm guidance.
+            Omitting a planned marker increases the checked clear spacing and can exceed the 50.8 mm guidance check.
           </p>
 
           <button

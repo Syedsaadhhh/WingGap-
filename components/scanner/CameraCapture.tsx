@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { stopMediaStream } from "../../lib/camera/stream.ts";
 
 export interface CapturedFrame {
   dataUrl: string;
@@ -28,14 +29,15 @@ export default function CameraCapture({
 
   const stopStream = useCallback(() => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => {
-        try {
-          track.stop();
-        } catch {
-          // ignore
-        }
-      });
+      stopMediaStream(streamRef.current);
       streamRef.current = null;
+    }
+    if (videoRef.current) {
+      try {
+        videoRef.current.srcObject = null;
+      } catch {
+        // ignore
+      }
     }
     setStreamActive(false);
     setVideoReady(false);
@@ -47,7 +49,15 @@ export default function CameraCapture({
     };
   }, [stopStream]);
 
+  const handleFallback = useCallback(() => {
+    stopStream();
+    onFallbackToManual();
+  }, [stopStream, onFallbackToManual]);
+
   const startCamera = async () => {
+    // 1. Immediately terminate any previous stream before requesting a new one
+    stopStream();
+
     setErrorType(null);
     setErrorMessage(null);
     setPermissionRequested(true);
@@ -73,6 +83,8 @@ export default function CameraCapture({
         videoRef.current.srcObject = stream;
         videoRef.current.play().catch((err) => {
           console.warn("Video playback error:", err);
+          // On playback failure, immediately stop stream to avoid dangling tracks
+          stopStream();
           setErrorType("playback");
           setErrorMessage("Failed to start video playback.");
         });
@@ -169,7 +181,7 @@ export default function CameraCapture({
             Allow camera
           </button>
           <button
-            onClick={onFallbackToManual}
+            onClick={handleFallback}
             className="w-full min-h-[44px] bg-canvas text-ink font-medium border border-line rounded-lg hover:bg-surface transition focus:outline-none focus-visible:ring-2 focus-visible:ring-ink text-sm"
           >
             Use manual planner
@@ -210,7 +222,7 @@ export default function CameraCapture({
             </button>
           )}
           <button
-            onClick={onFallbackToManual}
+            onClick={handleFallback}
             className="w-full min-h-[44px] bg-canvas text-ink font-medium border border-line rounded-lg hover:bg-surface transition focus:outline-none focus-visible:ring-2 focus-visible:ring-ink text-sm"
           >
             Use manual planner
@@ -240,7 +252,7 @@ export default function CameraCapture({
           <span className="text-xs font-mono tracking-wider font-bold">LIVE</span>
         </div>
         <button
-          onClick={onFallbackToManual}
+          onClick={handleFallback}
           className="text-xs font-mono bg-camera-chrome px-3 py-1.5 rounded border border-white/20 hover:bg-white/20 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
         >
           Manual planner
